@@ -12,12 +12,14 @@ merchant = os.getenv('MERCHANT')
 api_session = shopify.Session(merchant, '2024-07', token)
 shopify.ShopifyResource.activate_session(api_session)
 
-# Load the CSV file to create the country code to name mapping
-file_path = 'country_codes.csv'  # Update with the correct path
+# Load the CSV file to create the country code to tag mapping
+file_path = '00i_country_mappings.csv'  # Update with the correct path
 country_mappings = pd.read_csv(file_path)
 
-# Create a dictionary from the country mappings
-country_code_to_name = pd.Series(country_mappings['name'].values, index=country_mappings['alpha-2']).to_dict()
+# Create sets from the country mappings
+to_customer_countries = set(country_mappings['to_customer'].dropna())
+to_dragon_countries = set(country_mappings['to_dragon'].dropna())
+print(to_customer_countries)
 
 # Function to fetch untagged orders from Shopify
 def get_untagged_orders():
@@ -43,12 +45,17 @@ def add_tag_to_order(order, new_tag):
 # Fetch untagged orders
 untagged_orders = get_untagged_orders()
 
-# Add the corresponding country name as a tag to each untagged order
+# Add the corresponding tag to each untagged order
 for order in untagged_orders:
     country_code = determine_order_country(order)
     if country_code:
-        country_name = country_code_to_name.get(country_code, "Unknown Country")
-        add_tag_to_order(order, country_name)
-        print(f"Added '{country_name}' tag to Order ID {order.id}")
+        if country_code in to_customer_countries:
+            add_tag_to_order(order, 'to_customer')
+            print(f"Added 'to_customer' tag to Order ID {order.id}")
+        elif country_code in to_dragon_countries:
+            add_tag_to_order(order, 'to_dragon')
+            print(f"Added 'to_dragon' tag to Order ID {order.id}")
+        else:
+            print(f"Order ID {order.id}: Country code '{country_code}' not found in CSV")
     else:
         print(f"Order ID {order.id}: No shipping country code found")
