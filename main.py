@@ -30,9 +30,22 @@ to_dragon_countries = set(country_mappings['to_dragon'].dropna())
 # Function to fetch untagged orders from Shopify
 def get_untagged_orders():
     try:
-        orders = shopify.Order.find(limit=250)
-        untagged_orders = [order for order in orders if not order.tags]
-        return untagged_orders
+        orders= []
+        data = shopify.Order.find(limit=250)
+        for d  in data:
+            tags = d.tags.split(",") if d.tags else []
+            if 'to_customer' not in tags and 'to_dragon' not in tags:
+             orders.append(d)
+        while data.has_next_page():
+            data=data.next_page()
+            for d in data:
+             tags = d.tags.split(",") if d.tags else []
+             if 'to_customer' not in tags and 'to_dragon' not in tags:
+                orders.append(d)   
+
+        return orders         
+    
+    
     except Exception as e:
         print(f"Error fetching orders: {e}")
         return []
@@ -57,20 +70,22 @@ def add_tag_to_order(order, new_tag):
         order.save()
         print(f"Added '{new_tag}' tag to Order ID {order.id}")
     except Exception as e:
+      
         print(f"Error adding tag to Order ID {order.id}: {e}")
 
-# Fetch untagged orders
-untagged_orders = get_untagged_orders()
 
-# Add the corresponding tag to each untagged order
-for order in untagged_orders:
-    country_code = determine_order_country(order)
-    if country_code:
-        if country_code in to_customer_countries:
-            add_tag_to_order(order, 'to_customer')
-        elif country_code in to_dragon_countries:
-            add_tag_to_order(order, 'to_dragon')
+if __name__=="__main__":
+    # Fetch untagged orders
+    untagged_orders = get_untagged_orders()
+    # Add the corresponding tag to each untagged order
+    for order in untagged_orders:
+        country_code = determine_order_country(order)
+        if country_code:
+            if country_code in to_customer_countries:
+                add_tag_to_order(order, 'to_customer')
+            elif country_code in to_dragon_countries:
+                add_tag_to_order(order, 'to_dragon')
+            else:
+                print(f"Order ID {order.id}: Country code '{country_code}' not found in CSV")
         else:
-            print(f"Order ID {order.id}: Country code '{country_code}' not found in CSV")
-    else:
-        print(f"Order ID {order.id}: No shipping country code found")
+            print(f"Order ID {order.id}: No shipping country code found")
