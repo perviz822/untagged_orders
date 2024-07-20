@@ -3,80 +3,99 @@ from dotenv import load_dotenv
 import os
 import pandas as pd
 
-# Load environment variables from .env file
-load_dotenv('.env')
-token = os.getenv('TOKEN')
-merchant = os.getenv('MERCHANT')
+def load_env_variables():
+    """Load environment variables from .env file."""
+    load_dotenv('.env')
+    return os.getenv('TOKEN'), os.getenv('MERCHANT')
 
-try:
-    # Activate Shopify session
-    api_session = shopify.Session(merchant, '2024-07', token)
-    shopify.ShopifyResource.activate_session(api_session)
-except Exception as e:
-    print(f"Error activating Shopify session: {e}")
-    exit(1)
-
-# Load the CSV file to create the country code to tag mapping
-file_path = '00i_country_mappings.csv'
-country_mappings = pd.read_csv(file_path)
-
-
-# Create sets from the country mappings
-
-to_customer_countries = set(country_mappings['to_customer'].dropna())
-to_dragon_countries = set(country_mappings['to_dragon'].dropna())
-
-
-# Function to fetch untagged orders from Shopify
-def get_untagged_orders():
+def activate_shopify_session(token, merchant):
+    """Activate Shopify session using the provided token and merchant details."""
     try:
-        orders= []
+        api_session = shopify.Session(merchant, '2024-07', token)
+        shopify.ShopifyResource.activate_session(api_session)
+    except Exception as e:
+        print(f"Error activating Shopify session: {e}")
+        exit(1)
+
+def load_country_mappings(file_path):
+    """Load the CSV file to create the country code to tag mapping."""
+    country_mappings = pd.read_csv(file_path)
+    to_customer_countries = set(country_mappings['to_customer'].dropna())
+    to_dragon_countries = set(country_mappings['to_dragon'].dropna())
+    return to_customer_countries, to_dragon_countries
+
+def get_untagged_orders():
+    """
+    Fetch untagged orders from Shopify.
+    Returns:
+        list: List of untagged orders.
+    """
+    try:
+        orders = []
         data = shopify.Order.find(limit=250)
-        for d  in data:
+        for d in data:
             tags = d.tags.split(",") if d.tags else []
             if 'to_customer' not in tags and 'to_dragon' not in tags:
-             orders.append(d)
+                orders.append(d)
         while data.has_next_page():
-            data=data.next_page()
+            data = data.next_page()
             for d in data:
-             tags = d.tags.split(",") if d.tags else []
-             if 'to_customer' not in tags and 'to_dragon' not in tags:
-                orders.append(d)   
-
-        return orders         
-    
-    
+                tags = d.tags.split(",") if d.tags else []
+                if 'to_customer' not in tags and 'to_dragon' not in tags:
+                    orders.append(d)
+        return orders
     except Exception as e:
         print(f"Error fetching orders: {e}")
         return []
 
-# Function to determine the country code of an order
 def determine_order_country(order):
+    """
+    Determine the country code of an order.
+    Args:
+        order (shopify.Order): The order to determine the country code for.
+    Returns:
+        str: The country code of the order's shipping address, or None if not available.
+    """
     try:
         shipping_address = order.shipping_address
         if shipping_address:
-            country_code = shipping_address.country_code
-            return country_code
+            return shipping_address.country_code
     except AttributeError:
         print(f"Order ID {order.id}: Error accessing shipping address.")
     return None
 
-# Function to add a tag to an order
 def add_tag_to_order(order, new_tag):
+    """
+    Add a tag to an order.
+    Args:
+        order (shopify.Order): The order to add a tag to.
+        new_tag (str): The tag to add to the order.
+    """
     try:
+    
         current_tags = order.tags.split(",") if order.tags else []
+        print(current_tags)
         current_tags.append(new_tag)
         order.tags = ",".join(current_tags)
         order.save()
         print(f"Added '{new_tag}' tag to Order ID {order.id}")
     except Exception as e:
-      
         print(f"Error adding tag to Order ID {order.id}: {e}")
 
+if __name__ == "__main__":
+    # Load environment variables
+    token, merchant = load_env_variables()
 
-if __name__=="__main__":
+    # Activate Shopify session
+    activate_shopify_session(token, merchant)
+
+    # Load country mappings
+    file_path = '00i_country_mappings.csv'
+    to_customer_countries, to_dragon_countries = load_country_mappings(file_path)
+
     # Fetch untagged orders
     untagged_orders = get_untagged_orders()
+
     # Add the corresponding tag to each untagged order
     for order in untagged_orders:
         country_code = determine_order_country(order)
