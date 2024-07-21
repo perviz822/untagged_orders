@@ -48,7 +48,7 @@ def get_untagged_orders():
         print(f"Error fetching orders: {e}")
         return []
 
-def determine_order_country(order):
+def determine_country_of_order(order):
     """
     Determine the country code of an order.
     Args:
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     # Add the corresponding tag to each untagged order
     for order in untagged_orders:
-        country_code = determine_order_country(order)
+        country_code = determine_country_of_order(order)
         if country_code:
             if country_code in to_customer_countries:
                 add_tag_to_order(order, 'to_customer')
