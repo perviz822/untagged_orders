@@ -74,7 +74,7 @@ def determine_country_of_order(order):
     return None
 
 
-def add_tag_to_order(order, new_tag):
+def add_tag_to_an_order(order, new_tag):
     """
     Add a tag to an order.
     Args:
@@ -96,8 +96,6 @@ def tag_orders(file_path):
     token, merchant = load_env_variables()
     activate_shopify_session(token, merchant)
     to_customer_countries, to_dragon_countries = load_country_mappings(file_path)
-
-   #Fetch  orders
     untagged_orders = get_untagged_orders()
 
     # Add the corresponding tag to each untagged order
@@ -105,9 +103,9 @@ def tag_orders(file_path):
         country_code = determine_country_of_order(order)
         if country_code:
             if country_code in to_customer_countries:
-                add_tag_to_order(order, "to_customer")
+                add_tag_to_an_order(order, "to_customer")
             elif country_code in to_dragon_countries:
-                add_tag_to_order(order, "to_dragon")
+                add_tag_to_an_order(order, "to_dragon")
             else:
                 print(
                     f"Order ID {order.id}: Country code '{country_code}' not found in CSV"
